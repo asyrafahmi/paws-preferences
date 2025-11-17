@@ -1,0 +1,572 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Paws & Preferences - Find Your Favourite Kitty</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .app-container {
+            max-width: 400px;
+            width: 100%;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            overflow: hidden;
+            position: relative;
+        }
+
+        .header {
+            background: linear-gradient(45deg, #FF6B6B, #4ECDC4);
+            color: white;
+            padding: 20px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 24px;
+            margin-bottom: 5px;
+        }
+
+        .header p {
+            opacity: 0.9;
+            font-size: 14px;
+        }
+
+        .card-stack {
+            position: relative;
+            height: 500px;
+            overflow: hidden;
+        }
+
+        .cat-card {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            right: 20px;
+            bottom: 80px;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            cursor: grab;
+            transition: transform 0.3s ease, opacity 0.3s ease;
+            user-select: none;
+        }
+
+        .cat-card:active {
+            cursor: grabbing;
+        }
+
+        .cat-card img {
+            width: 100%;
+            height: 70%;
+            object-fit: cover;
+            border-radius: 15px 15px 0 0;
+        }
+
+        .cat-info {
+            padding: 15px;
+            text-align: center;
+        }
+
+        .cat-info h3 {
+            font-size: 18px;
+            margin-bottom: 5px;
+            color: #333;
+        }
+
+        .cat-info p {
+            color: #666;
+            font-size: 14px;
+        }
+
+        .controls {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 20px;
+        }
+
+        .control-btn {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            border: none;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+
+        .control-btn:hover {
+            transform: scale(1.1);
+            box-shadow: 0 8px 25px rgba(0,0,0,0.2);
+        }
+
+        .dislike-btn {
+            background: #FF6B6B;
+            color: white;
+        }
+
+        .like-btn {
+            background: #4ECDC4;
+            color: white;
+        }
+
+        .summary-screen {
+            display: none;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .summary-screen.active {
+            display: block;
+        }
+
+        .summary-title {
+            font-size: 24px;
+            color: #333;
+            margin-bottom: 20px;
+        }
+
+        .summary-stats {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 30px;
+        }
+
+        .stat {
+            font-size: 18px;
+            margin-bottom: 10px;
+        }
+
+        .liked-cats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+        }
+
+        .liked-cat {
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+
+        .liked-cat img {
+            width: 100%;
+            height: 100px;
+            object-fit: cover;
+        }
+
+        .restart-btn {
+            background: linear-gradient(45deg, #FF6B6B, #4ECDC4);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 25px;
+            font-size: 16px;
+            cursor: pointer;
+            margin-top: 20px;
+            transition: transform 0.2s ease;
+        }
+
+        .restart-btn:hover {
+            transform: scale(1.05);
+        }
+
+        .loading {
+            text-align: center;
+            padding: 50px;
+            color: #666;
+        }
+
+        .counter {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: rgba(0,0,0,0.7);
+            color: white;
+            padding: 8px 15px;
+            border-radius: 20px;
+            font-size: 14px;
+            z-index: 10;
+        }
+
+        /* Swipe animations */
+        .card-swiping-right {
+            transform: translateX(100%) rotate(20deg) !important;
+            opacity: 0 !important;
+        }
+
+        .card-swiping-left {
+            transform: translateX(-100%) rotate(-20deg) !important;
+            opacity: 0 !important;
+        }
+
+        /* Mobile optimizations */
+        @media (max-width: 480px) {
+            .app-container {
+                margin: 10px;
+            }
+            
+            .header h1 {
+                font-size: 20px;
+            }
+            
+            .control-btn {
+                width: 50px;
+                height: 50px;
+                font-size: 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="app-container">
+        <div class="header">
+            <h1>🐱 Paws & Preferences</h1>
+            <p>Swipe right to like, left to dislike</p>
+        </div>
+
+        <div class="counter" id="counter">
+            Loading cats...
+        </div>
+
+        <div class="main-screen" id="mainScreen">
+            <div class="card-stack" id="cardStack">
+                <div class="loading">
+                    <p>🐾 Loading adorable cats...</p>
+                </div>
+            </div>
+            
+            <div class="controls">
+                <button class="control-btn dislike-btn" id="dislikeBtn">❌</button>
+                <button class="control-btn like-btn" id="likeBtn">❤️</button>
+            </div>
+        </div>
+
+        <div class="summary-screen" id="summaryScreen">
+            <h2 class="summary-title">🎉 All Done!</h2>
+            <div class="summary-stats">
+                <div class="stat">Cats Reviewed: <span id="totalCats">0</span></div>
+                <div class="stat">Cats Liked: <span id="likedCount">0</span></div>
+                <div class="stat">Match Rate: <span id="matchRate">0%</span></div>
+            </div>
+            
+            <h3>Your Favorite Cats 😻</h3>
+            <div class="liked-cats" id="likedCats"></div>
+            
+            <button class="restart-btn" onclick="restartApp()">Try Again</button>
+        </div>
+    </div>
+
+    <script>
+        // App Configuration
+        const CAT_COUNT = 12;
+        let cats = [];
+        let currentIndex = 0;
+        let likedCats = [];
+        
+        // State management
+        let isDragging = false;
+        let startX = 0;
+        let currentX = 0;
+        let cardBeingDragged = null;
+
+        // Initialize the app
+        async function initializeApp() {
+            try {
+                console.log('Initializing Paws & Preferences app...');
+                await loadCats();
+                setupEventListeners();
+                showNextCard();
+                console.log('App initialized successfully!');
+            } catch (error) {
+                console.error('Failed to initialize app:', error);
+                document.getElementById('cardStack').innerHTML = '<div class="loading"><p>😿 Failed to load cats. Please refresh!<br><br>Error: ' + error.message + '</p></div>';
+            }
+        }
+
+        // Load cat images from Cataas API
+        async function loadCats() {
+            cats = [];
+            
+            // Create different cat URLs with better fallbacks
+            for (let i = 0; i < CAT_COUNT; i++) {
+                const width = 350;
+                const height = 300;
+                
+                // Use different URL formats for variety
+                let catUrl;
+                if (i % 3 === 0) {
+                    catUrl = `https://cataas.com/cat?width=${width}&height=${height}&${Date.now()}-${i}`;
+                } else if (i % 3 === 1) {
+                    catUrl = `https://cataas.com/cat/${i}?width=${width}&height=${height}`;
+                } else {
+                    catUrl = `https://cataas.com/cat?${Math.random()}&width=${width}&height=${height}`;
+                }
+                
+                cats.push({ url: catUrl, id: i });
+            }
+            
+            updateCounter();
+        }
+
+        // Create a cat card element
+        function createCatCard(cat, index) {
+            const card = document.createElement('div');
+            card.className = 'cat-card';
+            card.style.zIndex = CAT_COUNT - index;
+            
+            // Add some variety to cat descriptions
+            const catNames = ['Whiskers', 'Mittens', 'Shadow', 'Luna', 'Simba', 'Mochi', 'Pepper', 'Cookie', 'Smokey', 'Ginger', 'Felix', 'Oreo'];
+            const catTraits = ['Playful', 'Sleepy', 'Curious', 'Friendly', 'Adventurous', 'Cuddly', 'Independent', 'Mischievous'];
+            
+            const randomName = catNames[Math.floor(Math.random() * catNames.length)];
+            const randomTrait = catTraits[Math.floor(Math.random() * catTraits.length)];
+            
+            card.innerHTML = `
+                <img src="${cat.url}" alt="Cat ${cat.id}" loading="lazy">
+                <div class="cat-info">
+                    <h3>${randomName}</h3>
+                    <p>${randomTrait} • ${Math.floor(Math.random() * 8) + 1} years old</p>
+                </div>
+            `;
+            
+            return card;
+        }
+
+        // Show the next card in the stack
+        function showNextCard() {
+            const cardStack = document.getElementById('cardStack');
+            cardStack.innerHTML = '';
+            
+            // Show up to 3 cards in the stack for depth effect
+            for (let i = 0; i < Math.min(3, cats.length - currentIndex); i++) {
+                const catIndex = currentIndex + i;
+                if (catIndex < cats.length) {
+                    const card = createCatCard(cats[catIndex], i);
+                    
+                    // Add slight offset and scale for stack effect
+                    if (i > 0) {
+                        card.style.transform = `scale(${1 - i * 0.02}) translateY(${i * 4}px)`;
+                        card.style.opacity = 1 - i * 0.1;
+                    }
+                    
+                    cardStack.appendChild(card);
+                }
+            }
+            
+            updateCounter();
+        }
+
+        // Update the counter display
+        function updateCounter() {
+            const counter = document.getElementById('counter');
+            if (currentIndex < cats.length) {
+                counter.textContent = `${currentIndex + 1} / ${cats.length}`;
+            } else {
+                counter.textContent = 'Complete!';
+            }
+        }
+
+        // Handle liking a cat
+        function likeCat() {
+            if (currentIndex >= cats.length) return;
+            
+            const currentCat = cats[currentIndex];
+            likedCats.push(currentCat);
+            
+            animateCardExit('right');
+            nextCard();
+        }
+
+        // Handle disliking a cat
+        function dislikeCat() {
+            if (currentIndex >= cats.length) return;
+            
+            animateCardExit('left');
+            nextCard();
+        }
+
+        // Animate card exit
+        function animateCardExit(direction) {
+            const topCard = document.querySelector('.cat-card');
+            if (topCard) {
+                topCard.classList.add(`card-swiping-${direction}`);
+            }
+        }
+
+        // Move to next card
+        function nextCard() {
+            currentIndex++;
+            
+            setTimeout(() => {
+                if (currentIndex >= cats.length) {
+                    showSummary();
+                } else {
+                    showNextCard();
+                }
+            }, 300);
+        }
+
+        // Show the summary screen
+        function showSummary() {
+            document.getElementById('mainScreen').style.display = 'none';
+            document.getElementById('summaryScreen').classList.add('active');
+            
+            // Update summary stats
+            document.getElementById('totalCats').textContent = cats.length;
+            document.getElementById('likedCount').textContent = likedCats.length;
+            
+            const matchRate = cats.length > 0 ? Math.round((likedCats.length / cats.length) * 100) : 0;
+            document.getElementById('matchRate').textContent = `${matchRate}%`;
+            
+            // Show liked cats
+            const likedCatsContainer = document.getElementById('likedCats');
+            likedCatsContainer.innerHTML = '';
+            
+            if (likedCats.length === 0) {
+                likedCatsContainer.innerHTML = '<p style="grid-column: 1/-1; color: #666; padding: 20px;">No cats liked this time. Maybe try again? 😸</p>';
+            } else {
+                likedCats.forEach(cat => {
+                    const likedCatDiv = document.createElement('div');
+                    likedCatDiv.className = 'liked-cat';
+                    likedCatDiv.innerHTML = `<img src="${cat.url}" alt="Liked cat ${cat.id}">`;
+                    likedCatsContainer.appendChild(likedCatDiv);
+                });
+            }
+        }
+
+        // Restart the app
+        function restartApp() {
+            currentIndex = 0;
+            likedCats = [];
+            
+            document.getElementById('summaryScreen').classList.remove('active');
+            document.getElementById('mainScreen').style.display = 'block';
+            
+            loadCats().then(() => {
+                showNextCard();
+            });
+        }
+
+        // Setup event listeners for touch and mouse interactions
+        function setupEventListeners() {
+            const likeBtn = document.getElementById('likeBtn');
+            const dislikeBtn = document.getElementById('dislikeBtn');
+            const cardStack = document.getElementById('cardStack');
+            
+            // Button clicks
+            likeBtn.addEventListener('click', likeCat);
+            dislikeBtn.addEventListener('click', dislikeCat);
+            
+            // Keyboard support
+            document.addEventListener('keydown', (e) => {
+                if (e.key === 'ArrowRight' || e.key === ' ') {
+                    e.preventDefault();
+                    likeCat();
+                } else if (e.key === 'ArrowLeft' || e.key === 'Backspace') {
+                    e.preventDefault();
+                    dislikeCat();
+                }
+            });
+            
+            // Touch and mouse drag events
+            cardStack.addEventListener('mousedown', handleStart);
+            cardStack.addEventListener('touchstart', handleStart);
+            
+            document.addEventListener('mousemove', handleMove);
+            document.addEventListener('touchmove', handleMove);
+            
+            document.addEventListener('mouseup', handleEnd);
+            document.addEventListener('touchend', handleEnd);
+        }
+
+        // Handle start of drag/touch
+        function handleStart(e) {
+            const topCard = document.querySelector('.cat-card');
+            if (!topCard) return;
+            
+            isDragging = true;
+            cardBeingDragged = topCard;
+            
+            const clientX = e.type === 'mousedown' ? e.clientX : e.touches[0].clientX;
+            startX = clientX;
+            currentX = clientX;
+            
+            cardBeingDragged.style.transition = 'none';
+        }
+
+        // Handle drag/touch move
+        function handleMove(e) {
+            if (!isDragging || !cardBeingDragged) return;
+            
+            e.preventDefault();
+            const clientX = e.type === 'mousemove' ? e.clientX : e.touches[0].clientX;
+            currentX = clientX;
+            
+            const deltaX = currentX - startX;
+            const rotation = deltaX * 0.1; // Rotate based on drag distance
+            
+            cardBeingDragged.style.transform = `translateX(${deltaX}px) rotate(${rotation}deg)`;
+            
+            // Add visual feedback
+            const opacity = Math.max(0.5, 1 - Math.abs(deltaX) / 200);
+            cardBeingDragged.style.opacity = opacity;
+        }
+
+        // Handle end of drag/touch
+        function handleEnd(e) {
+            if (!isDragging || !cardBeingDragged) return;
+            
+            isDragging = false;
+            
+            const deltaX = currentX - startX;
+            const threshold = 100; // Minimum distance to trigger swipe
+            
+            cardBeingDragged.style.transition = 'transform 0.3s ease, opacity 0.3s ease';
+            
+            if (Math.abs(deltaX) > threshold) {
+                // Determine swipe direction and action
+                if (deltaX > 0) {
+                    likeCat(); // Swipe right = like
+                } else {
+                    dislikeCat(); // Swipe left = dislike
+                }
+            } else {
+                // Snap back to center
+                cardBeingDragged.style.transform = 'translateX(0) rotate(0deg)';
+                cardBeingDragged.style.opacity = '1';
+            }
+            
+            cardBeingDragged = null;
+        }
+
+        // Start the app when page loads
+        document.addEventListener('DOMContentLoaded', initializeApp);
+    </script>
+</body>
+</html>
