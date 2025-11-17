@@ -77,6 +77,20 @@
             height: 70%;
             object-fit: cover;
             border-radius: 15px 15px 0 0;
+            background: #f0f0f0;
+            transition: opacity 0.3s ease;
+        }
+        
+        .cat-card img.loading {
+            opacity: 0.5;
+            background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+            background-size: 200% 100%;
+            animation: loading 1.5s infinite;
+        }
+        
+        @keyframes loading {
+            0% { background-position: 200% 0; }
+            100% { background-position: -200% 0; }
         }
 
         .cat-info {
@@ -201,6 +215,22 @@
             padding: 50px;
             color: #666;
         }
+        
+        .loading-progress {
+            width: 100%;
+            height: 4px;
+            background: #e0e0e0;
+            border-radius: 2px;
+            margin: 20px 0;
+            overflow: hidden;
+        }
+        
+        .loading-bar {
+            height: 100%;
+            background: linear-gradient(45deg, #FF6B6B, #4ECDC4);
+            transition: width 0.3s ease;
+            width: 0%;
+        }
 
         .counter {
             position: absolute;
@@ -227,18 +257,80 @@
 
         /* Mobile optimizations */
         @media (max-width: 480px) {
+            body {
+                padding: 10px;
+            }
+            
             .app-container {
-                margin: 10px;
+                margin: 0;
+                max-width: 100%;
+            }
+            
+            .header {
+                padding: 15px;
             }
             
             .header h1 {
-                font-size: 20px;
+                font-size: 22px;
+            }
+            
+            .header p {
+                font-size: 13px;
+            }
+            
+            .card-stack {
+                height: 450px;
+            }
+            
+            .cat-card {
+                top: 15px;
+                left: 15px;
+                right: 15px;
+                bottom: 70px;
             }
             
             .control-btn {
-                width: 50px;
-                height: 50px;
-                font-size: 20px;
+                width: 55px;
+                height: 55px;
+                font-size: 22px;
+            }
+            
+            .controls {
+                gap: 25px;
+                bottom: 15px;
+            }
+            
+            .summary-screen {
+                padding: 20px;
+            }
+            
+            .liked-cats {
+                grid-template-columns: repeat(2, 1fr);
+                gap: 10px;
+            }
+        }
+        
+        /* Tablet optimizations */
+        @media (min-width: 481px) and (max-width: 768px) {
+            .app-container {
+                max-width: 450px;
+            }
+            
+            .liked-cats {
+                grid-template-columns: repeat(3, 1fr);
+            }
+        }
+        
+        /* Better touch targets */
+        @media (pointer: coarse) {
+            .control-btn {
+                min-width: 60px;
+                min-height: 60px;
+            }
+            
+            .restart-btn {
+                min-height: 50px;
+                padding: 15px 25px;
             }
         }
     </style>
@@ -258,6 +350,9 @@
             <div class="card-stack" id="cardStack">
                 <div class="loading">
                     <p>🐾 Loading adorable cats...</p>
+                    <div class="loading-progress">
+                        <div class="loading-bar" id="loadingBar"></div>
+                    </div>
                 </div>
             </div>
             
@@ -295,70 +390,162 @@
         let currentX = 0;
         let cardBeingDragged = null;
 
-        // Initialize the app
+        // Initialize the app with progress tracking
         async function initializeApp() {
             try {
                 console.log('Initializing Paws & Preferences app...');
+                updateLoadingProgress(0);
+                
                 await loadCats();
+                updateLoadingProgress(80);
+                
                 setupEventListeners();
+                updateLoadingProgress(90);
+                
                 showNextCard();
+                updateLoadingProgress(100);
+                
                 console.log('App initialized successfully!');
             } catch (error) {
                 console.error('Failed to initialize app:', error);
                 document.getElementById('cardStack').innerHTML = '<div class="loading"><p>😿 Failed to load cats. Please refresh!<br><br>Error: ' + error.message + '</p></div>';
             }
         }
+        
+        // Update loading progress bar
+        function updateLoadingProgress(percent) {
+            const loadingBar = document.getElementById('loadingBar');
+            if (loadingBar) {
+                loadingBar.style.width = percent + '%';
+            }
+        }
 
-        // Load cat images from Cataas API
+        // Load cat images with preloading and fallbacks
         async function loadCats() {
             cats = [];
+            const loadingPromises = [];
             
-            // Create different cat URLs with better fallbacks
+            // Pre-generate URLs with multiple fallback options
             for (let i = 0; i < CAT_COUNT; i++) {
                 const width = 350;
                 const height = 300;
+                const timestamp = Date.now() + i;
                 
-                // Use different URL formats for variety
-                let catUrl;
-                if (i % 3 === 0) {
-                    catUrl = `https://cataas.com/cat?width=${width}&height=${height}&${Date.now()}-${i}`;
-                } else if (i % 3 === 1) {
-                    catUrl = `https://cataas.com/cat/${i}?width=${width}&height=${height}`;
-                } else {
-                    catUrl = `https://cataas.com/cat?${Math.random()}&width=${width}&height=${height}`;
-                }
+                // Multiple fallback URLs for each cat
+                const urls = [
+                    `https://cataas.com/cat?width=${width}&height=${height}&t=${timestamp}`,
+                    `https://cataas.com/cat?${Math.random().toString(36)}&width=${width}&height=${height}`,
+                    `https://cataas.com/cat/${i}?width=${width}&height=${height}`,
+                    `https://cataas.com/cat/cute?width=${width}&height=${height}&${i}`,
+                    `https://cataas.com/cat?width=${width}&height=${height}&r=${Math.floor(Math.random() * 1000)}`
+                ];
                 
-                cats.push({ url: catUrl, id: i });
+                // Create promise that tries multiple URLs
+                const loadPromise = new Promise((resolve) => {
+                    let urlIndex = 0;
+                    
+                    function tryNextUrl() {
+                        if (urlIndex >= urls.length) {
+                            // If all URLs fail, use a placeholder
+                            resolve({ 
+                                url: `https://cataas.com/cat?${Math.random()}`, 
+                                id: i, 
+                                loaded: false 
+                            });
+                            return;
+                        }
+                        
+                        const img = new Image();
+                        const currentUrl = urls[urlIndex];
+                        
+                        img.onload = () => {
+                            resolve({ url: currentUrl, id: i, loaded: true });
+                        };
+                        
+                        img.onerror = () => {
+                            urlIndex++;
+                            setTimeout(tryNextUrl, 100); // Small delay before trying next URL
+                        };
+                        
+                        // Set timeout for each image
+                        setTimeout(() => {
+                            if (!img.complete) {
+                                urlIndex++;
+                                tryNextUrl();
+                            }
+                        }, 3000); // 3 second timeout per image
+                        
+                        img.src = currentUrl;
+                    }
+                    
+                    tryNextUrl();
+                });
+                
+                loadingPromises.push(loadPromise);
             }
             
+            // Wait for all images to load (or timeout) with progress updates
+            let loadedCount = 0;
+            const progressPromises = loadingPromises.map(async (promise) => {
+                const result = await promise;
+                loadedCount++;
+                const progress = Math.round((loadedCount / CAT_COUNT) * 70); // 70% of total progress
+                updateLoadingProgress(progress);
+                return result;
+            });
+            
+            cats = await Promise.all(progressPromises);
             updateCounter();
         }
 
-        // Create a cat card element
+        // Create a cat card element with better loading
         function createCatCard(cat, index) {
             const card = document.createElement('div');
             card.className = 'cat-card';
             card.style.zIndex = CAT_COUNT - index;
             
             // Add some variety to cat descriptions
-            const catNames = ['Whiskers', 'Mittens', 'Shadow', 'Luna', 'Simba', 'Mochi', 'Pepper', 'Cookie', 'Smokey', 'Ginger', 'Felix', 'Oreo'];
-            const catTraits = ['Playful', 'Sleepy', 'Curious', 'Friendly', 'Adventurous', 'Cuddly', 'Independent', 'Mischievous'];
+            const catNames = ['Whiskers', 'Mittens', 'Shadow', 'Luna', 'Simba', 'Mochi', 'Pepper', 'Cookie', 'Smokey', 'Ginger', 'Felix', 'Oreo', 'Boots', 'Tiger', 'Princess'];
+            const catTraits = ['Playful', 'Sleepy', 'Curious', 'Friendly', 'Adventurous', 'Cuddly', 'Independent', 'Mischievous', 'Gentle', 'Energetic', 'Calm', 'Loving'];
             
             const randomName = catNames[Math.floor(Math.random() * catNames.length)];
             const randomTrait = catTraits[Math.floor(Math.random() * catTraits.length)];
             
             card.innerHTML = `
-                <img src="${cat.url}" alt="Cat ${cat.id}" loading="lazy">
+                <img src="${cat.url}" alt="Cat ${cat.id}" loading="eager" class="loading">
                 <div class="cat-info">
                     <h3>${randomName}</h3>
                     <p>${randomTrait} • ${Math.floor(Math.random() * 8) + 1} years old</p>
                 </div>
             `;
             
+            // Handle image loading
+            const img = card.querySelector('img');
+            img.onload = () => {
+                img.classList.remove('loading');
+            };
+            
+            img.onerror = () => {
+                // If image fails to load, try a different URL
+                const fallbackUrl = `https://cataas.com/cat?${Math.random().toString(36)}&width=350&height=300`;
+                img.src = fallbackUrl;
+                
+                // If fallback also fails, show placeholder
+                img.onerror = () => {
+                    img.style.background = '#f0f0f0';
+                    img.style.display = 'flex';
+                    img.style.alignItems = 'center';
+                    img.style.justifyContent = 'center';
+                    img.innerHTML = '🐱';
+                    img.style.fontSize = '60px';
+                    img.classList.remove('loading');
+                };
+            };
+            
             return card;
         }
 
-        // Show the next card in the stack
+        // Show the next card in the stack with preloading
         function showNextCard() {
             const cardStack = document.getElementById('cardStack');
             cardStack.innerHTML = '';
@@ -373,13 +560,28 @@
                     if (i > 0) {
                         card.style.transform = `scale(${1 - i * 0.02}) translateY(${i * 4}px)`;
                         card.style.opacity = 1 - i * 0.1;
+                        card.style.pointerEvents = 'none'; // Only top card is interactive
                     }
                     
                     cardStack.appendChild(card);
                 }
             }
             
+            // Preload next few images
+            preloadNextImages();
             updateCounter();
+        }
+        
+        // Preload upcoming images to reduce lag
+        function preloadNextImages() {
+            const preloadCount = 3;
+            for (let i = currentIndex + 3; i < Math.min(currentIndex + 3 + preloadCount, cats.length); i++) {
+                if (cats[i] && !cats[i].preloaded) {
+                    const img = new Image();
+                    img.src = cats[i].url;
+                    cats[i].preloaded = true;
+                }
+            }
         }
 
         // Update the counter display
